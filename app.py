@@ -383,6 +383,7 @@ elif page == "Prediksi":
     else:
         model_rf = st.session_state["model_rf"]
 
+        # Load feature columns
         FEATURE_PATH = "model/feature_columns.joblib"
         if os.path.exists(FEATURE_PATH):
             feature_cols = joblib.load(FEATURE_PATH)
@@ -390,52 +391,55 @@ elif page == "Prediksi":
             st.warning("⚠️ Feature columns belum tersedia! Pastikan file 'feature_columns.joblib' ada di folder model/")
             st.stop()
 
+        # Load dataset asli untuk similarity
+        DATA_PATH = "data/datamodelprediksi.xlsx"
+        if os.path.exists(DATA_PATH):
+            df_similarity = pd.read_excel(DATA_PATH)
+        else:
+            st.warning("⚠️ Dataset asli untuk similarity tidak ditemukan!")
+            st.stop()
+
+        # Pastikan semua kolom numerik
+        for col in feature_cols:
+            if df_similarity[col].dtype == object:
+                # Remove % dan ubah ke float
+                df_similarity[col] = df_similarity[col].astype(str).str.replace("%","").astype(float)
+
         st.subheader("Input Variabel")
 
-        # Buat input berjajar 3 kolom
+        # Tampilkan input 3 kolom per baris
         input_data = {}
-        cols_layout = st.columns(3)
-        for i, col in enumerate(feature_cols):
-            with cols_layout[i % 3]:
-                val = st.text_input(f"{col}", value="0.0")
-                input_data[col] = val
+        cols_per_row = 3
+        for i in range(0, len(feature_cols), cols_per_row):
+            cols = st.columns(min(cols_per_row, len(feature_cols)-i))
+            for j, col_name in enumerate(feature_cols[i:i+cols_per_row]):
+                val = cols[j].number_input(f"{col_name}", value=0.0)
+                input_data[col_name] = val
 
         input_df = pd.DataFrame([input_data])
 
-        # Bersihkan persentase menjadi float
-        for col in input_df.columns:
-            if input_df[col].dtype == object:
-                input_df[col] = input_df[col].str.replace('%','').str.replace(',','').astype(float)
-
+        # Prediksi harga
         if st.button("Prediksi Harga"):
             try:
-                # Prediksi harga
+                # Prediksi
                 pred_harga = model_rf.predict(input_df)[0]
                 st.success(f"💰 Prediksi Harga: {pred_harga:,.2f}")
 
-                # Top-5 similarity
+                # Hitung similarity dengan dataset asli
                 scaler = StandardScaler()
-                # Gunakan data dummy numerik float
-                X_dummy = pd.DataFrame(np.random.rand(100, len(feature_cols)), columns=feature_cols)
-                X_scaled = scaler.fit_transform(X_dummy)
+                X_similarity = df_similarity[feature_cols].copy()
+                X_scaled = scaler.fit_transform(X_similarity)
                 input_scaled = scaler.transform(input_df)
                 sim_matrix = cosine_similarity(X_scaled, input_scaled)
                 top5_idx = np.argsort(sim_matrix[:,0])[::-1][:5]
 
+                # Tampilkan Top-5 similarity dalam tabel
                 st.subheader("Top-5 Data Paling Mirip")
-                top5_list = []
-                for i, idx in enumerate(top5_idx):
-                    row = X_dummy.iloc[idx].copy()
-                    sim_score = sim_matrix[idx,0]
-                    row['Similarity'] = sim_score
-                    row['Rank'] = i+1
-                    top5_list.append(row)
-
-                top5_df = pd.DataFrame(top5_list)
-                # Tampilkan kolom Rank, fitur utama, Similarity
-                display_cols = ['Rank'] + [c for c in feature_cols if c != "HARGAPENAWARAN"] + ['Similarity']
-                st.dataframe(top5_df[display_cols].style.format({"Similarity": "{:.2%}"}))
+                top5_rows = df_similarity.iloc[top5_idx].copy()
+                top5_rows['Similarity'] = sim_matrix[top5_idx,0]
+                # Format similarity %
+                top5_rows['Similarity'] = top5_rows['Similarity'].apply(lambda x: f"{x*100:.2f}%")
+                st.dataframe(top5_rows.reset_index(drop=True))
 
             except Exception as e:
                 st.error(f"⚠️ Terjadi error saat prediksi: {e}")
-
