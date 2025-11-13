@@ -212,7 +212,6 @@ elif page == "Model Dasar Prediksi":
         st.plotly_chart(fig_r2, use_container_width=True)
 
     # 3️⃣ Keterangan indikator
-  # --------------------------
     # Expander: Keterangan indikator
     # --------------------------
     with st.expander("📌 Keterangan Rinci Indikator Evaluasi Model"):
@@ -240,34 +239,34 @@ elif page == "Model Dasar Prediksi":
            - Semakin kecil → prediksi lebih akurat. Contoh: MAPE 0.10 → rata-rata prediksi meleset 10% dari nilai asli.
         """)
 
-    # 4️⃣ Interpretasi per model dalam 1 blok Markdown
-    interpretasi_text = "### 📝 Interpretasi Hasil Setiap Model\n\n"
+    with st.expander("📝 Interpretasi Hasil Setiap Model"):
+        interpretasi_text = ""
+        for idx, row in results_eval.iterrows():
+            model = row['Model']
+            r2_out = row['R2_out_sample']
+            rmse_out = row['RMSE_out_sample']
+            mae_out = row['MAE_out_sample']
+            mape_out = row['MAPE_out_sample']
+        
+            if r2_out >= 0.9 and rmse_out < results_eval['RMSE_out_sample'].median():
+                interpretasi = "Performa sangat baik: R² tinggi dan error rendah."
+            elif r2_out >= 0.7:
+                interpretasi = "Performa baik: R² cukup tinggi, error moderat."
+            elif r2_out >= 0.5:
+                interpretasi = "Performa sedang: R² sedang, perhatikan error."
+            else:
+                interpretasi = "Performa kurang baik: R² rendah, prediksi kemungkinan kurang akurat."
+        
+            if row['R2_in_sample'] - r2_out > 0.2:
+                interpretasi += " ⚠️ Kemungkinan overfitting (R² in-sample jauh lebih tinggi)."
+        
+            interpretasi_text += (
+                f"**{model}**: R²_out = {r2_out:.3f}, RMSE_out = {rmse_out:,.0f}, "
+                f"MAE = {mae_out:,.0f}, MAPE = {mape_out:.2%} → {interpretasi}\n\n"
+            )
+    
+        st.markdown(interpretasi_text)
 
-    for idx, row in results_eval.iterrows():
-        model = row['Model']
-        r2_out = row['R2_out_sample']
-        rmse_out = row['RMSE_out_sample']
-        mae_out = row['MAE_out_sample']
-        mape_out = row['MAPE_out_sample']
-    
-        if r2_out >= 0.9 and rmse_out < results_eval['RMSE_out_sample'].median():
-            interpretasi = "Performa sangat baik: R² tinggi dan error rendah."
-        elif r2_out >= 0.7:
-            interpretasi = "Performa baik: R² cukup tinggi, error moderat."
-        elif r2_out >= 0.5:
-            interpretasi = "Performa sedang: R² sedang, perhatikan error."
-        else:
-            interpretasi = "Performa kurang baik: R² rendah, prediksi kemungkinan kurang akurat."
-    
-        if row['R2_in_sample'] - r2_out > 0.2:
-            interpretasi += " ⚠️ Kemungkinan overfitting (R² in-sample jauh lebih tinggi)."
-    
-        interpretasi_text += (
-            f"**{model}**: R²_out = {r2_out:.3f}, RMSE_out = {rmse_out:,.0f}, "
-            f"MAE = {mae_out:,.0f}, MAPE = {mape_out:.2%} → {interpretasi}\n\n"
-        )
-
-    st.markdown(interpretasi_text)
 
 
 # ==========================
