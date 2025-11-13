@@ -377,7 +377,7 @@ elif page == "Model Dasar Prediksi":
 # ==========================
 elif page == "Prediksi":
     st.title("💡 Prediksi Harga")
-
+    
     if "model_rf" not in st.session_state:
         st.warning("⚠️ Model belum tersedia!")
     else:
@@ -392,58 +392,49 @@ elif page == "Prediksi":
 
         st.subheader("Input Variabel")
 
-        # -------------------------
-        # Input berjajar 3 kolom
-        # -------------------------
+        # Buat input berjajar 3 kolom
         input_data = {}
-        n_cols = 3
-        rows = [feature_cols[i:i+n_cols] for i in range(0, len(feature_cols), n_cols)]
-        for row in rows:
-            cols = st.columns(len(row))
-            for i, col_name in enumerate(row):
-                val = cols[i].number_input(f"{col_name}", value=0.0)
-                input_data[col_name] = val
+        cols_layout = st.columns(3)
+        for i, col in enumerate(feature_cols):
+            with cols_layout[i % 3]:
+                val = st.text_input(f"{col}", value="0.0")
+                input_data[col] = val
 
         input_df = pd.DataFrame([input_data])
 
-        # -------------------------
-        # Tombol Prediksi
-        # -------------------------
+        # Bersihkan persentase menjadi float
+        for col in input_df.columns:
+            if input_df[col].dtype == object:
+                input_df[col] = input_df[col].str.replace('%','').str.replace(',','').astype(float)
+
         if st.button("Prediksi Harga"):
             try:
                 # Prediksi harga
                 pred_harga = model_rf.predict(input_df)[0]
                 st.success(f"💰 Prediksi Harga: {pred_harga:,.2f}")
 
-                # -------------------------
                 # Top-5 similarity
-                # -------------------------
                 scaler = StandardScaler()
+                # Gunakan data dummy numerik float
                 X_dummy = pd.DataFrame(np.random.rand(100, len(feature_cols)), columns=feature_cols)
                 X_scaled = scaler.fit_transform(X_dummy)
                 input_scaled = scaler.transform(input_df)
                 sim_matrix = cosine_similarity(X_scaled, input_scaled)
                 top5_idx = np.argsort(sim_matrix[:,0])[::-1][:5]
 
-                # Buat tabel display
-                top5_display = []
-                for i, idx in enumerate(top5_idx):
-                    row_data = X_dummy.iloc[idx]
-                    sim_score = sim_matrix[idx,0]
-
-                    display_row = {col: f"{row_data[col]:,.2f}" for col in feature_cols if col != "HARGAPENAWARAN"}
-                    display_row["Prediksi Harga"] = f"{pred_harga:,.2f}"  # bisa diganti row_data["HARGAPENAWARAN"] jika ada
-                    display_row["Similarity (%)"] = f"{sim_score*100:.2f}%"
-                    top5_display.append(display_row)
-
-                df_top5_display = pd.DataFrame(top5_display)
-
                 st.subheader("Top-5 Data Paling Mirip")
-                st.dataframe(
-                    df_top5_display.style.background_gradient(
-                        cmap='viridis', subset=["Similarity (%)"]
-                    )
-                )
+                top5_list = []
+                for i, idx in enumerate(top5_idx):
+                    row = X_dummy.iloc[idx].copy()
+                    sim_score = sim_matrix[idx,0]
+                    row['Similarity'] = sim_score
+                    row['Rank'] = i+1
+                    top5_list.append(row)
+
+                top5_df = pd.DataFrame(top5_list)
+                # Tampilkan kolom Rank, fitur utama, Similarity
+                display_cols = ['Rank'] + [c for c in feature_cols if c != "HARGAPENAWARAN"] + ['Similarity']
+                st.dataframe(top5_df[display_cols].style.format({"Similarity": "{:.2%}"}))
 
             except Exception as e:
                 st.error(f"⚠️ Terjadi error saat prediksi: {e}")
