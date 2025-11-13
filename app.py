@@ -13,6 +13,7 @@ from lightgbm import LGBMRegressor
 import xgboost as xgb
 from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error, mean_absolute_percentage_error
 import os
+import plotly.express as px
 
 # ==========================
 # Load model Random Forest
@@ -142,18 +143,16 @@ elif page == "Evaluasi Model":
                 except Exception as e:
                     st.warning(f"⚠️ Model {name} gagal dijalankan: {e}")
 
-            # Tampilkan hasil sorted by RMSE_out_sample
             results = results.sort_values(by='RMSE_out_sample')
             st.subheader("Hasil Evaluasi Model")
             st.dataframe(results)
 
 # ==========================
-# Halaman 3: Model Dasar Prediksi (Tampilan Profesional)
+# Halaman 3: Model Dasar Prediksi
 # ==========================
 elif page == "Model Dasar Prediksi":
     st.title("📈 Model Dasar Prediksi")
 
-    # Load hasil evaluasi yang sudah disimpan (joblib)
     EVAL_PATH = "model/results_evaluation.joblib"
     if os.path.exists(EVAL_PATH):
         results_eval = joblib.load(EVAL_PATH)
@@ -162,125 +161,96 @@ elif page == "Model Dasar Prediksi":
         st.warning("⚠️ Hasil evaluasi belum tersedia. Harap simpan results_evaluation.joblib di folder model/")
         st.stop()
 
-    # Urutkan berdasarkan RMSE out-sample
     results_eval = results_eval.sort_values(by='RMSE_out_sample', ascending=True)
 
-    # --------------------------
-    # Layout Tabel + Charts
-    # --------------------------
-    st.subheader("Hasil Evaluasi Model")
-    col1, col2 = st.columns([1,1])
+    # 1️⃣ Tabel Interaktif
+    st.subheader("Tabel Hasil Evaluasi Model")
+    st.dataframe(
+        results_eval.style.format({
+            'R2_in_sample': '{:.3f}',
+            'R2_out_sample': '{:.3f}',
+            'MSE_in_sample': '{:,.0f}',
+            'MSE_out_sample': '{:,.0f}',
+            'RMSE_in_sample': '{:,.0f}',
+            'RMSE_out_sample': '{:,.0f}',
+            'MAE_in_sample': '{:,.0f}',
+            'MAE_out_sample': '{:,.0f}',
+            'MAPE_in_sample': '{:.2%}',
+            'MAPE_out_sample': '{:.2%}'
+        }).background_gradient(cmap='plasma', subset=['R2_in_sample','R2_out_sample'])
+          .background_gradient(cmap='viridis', subset=['RMSE_in_sample','RMSE_out_sample','MAE_in_sample','MAE_out_sample','MAPE_in_sample','MAPE_out_sample'])
+    )
 
-    # Tabel
-    with col1:
-        st.dataframe(
-            results_eval.style.format({
-                'R2_in_sample': '{:.3f}',
-                'R2_out_sample': '{:.3f}',
-                'MSE_in_sample': '{:,.0f}',
-                'MSE_out_sample': '{:,.0f}',
-                'RMSE_in_sample': '{:,.0f}',
-                'RMSE_out_sample': '{:,.0f}',
-                'MAE_in_sample': '{:,.0f}',
-                'MAE_out_sample': '{:,.0f}',
-                'MAPE_in_sample': '{:.2%}',
-                'MAPE_out_sample': '{:.2%}'
-            }).background_gradient(cmap='plasma', subset=['R2_in_sample','R2_out_sample'])
-              .background_gradient(cmap='viridis', subset=['RMSE_in_sample','RMSE_out_sample','MAE_in_sample','MAE_out_sample','MAPE_in_sample','MAPE_out_sample'])
-        )
+    # 2️⃣ Chart Interaktif dengan Tabs
+    st.subheader("Visualisasi Performa Model")
+    tab1, tab2 = st.tabs(["RMSE Out-Sample", "R² Out-Sample"])
 
-    # Charts
-    with col2:
-        import plotly.express as px
-
-        # RMSE Out-Sample
+    with tab1:
         fig_rmse = px.bar(
             results_eval,
-            x='RMSE_out_sample', y='Model',
-            orientation='h', text='RMSE_out_sample',
-            color='RMSE_out_sample', color_continuous_scale='viridis',
-            height=300
+            x='RMSE_out_sample',
+            y='Model',
+            orientation='h',
+            color='RMSE_out_sample',
+            color_continuous_scale='viridis',
+            text='RMSE_out_sample'
         )
         fig_rmse.update_layout(yaxis={'categoryorder':'total ascending'})
         st.plotly_chart(fig_rmse, use_container_width=True)
 
-        # R² Out-Sample
+    with tab2:
         fig_r2 = px.bar(
             results_eval,
-            x='R2_out_sample', y='Model',
-            orientation='h', text='R2_out_sample',
-            color='R2_out_sample', color_continuous_scale='plasma',
-            height=300
+            x='R2_out_sample',
+            y='Model',
+            orientation='h',
+            color='R2_out_sample',
+            color_continuous_scale='plasma',
+            text='R2_out_sample'
         )
         fig_r2.update_layout(yaxis={'categoryorder':'total ascending'})
         st.plotly_chart(fig_r2, use_container_width=True)
 
-    # --------------------------
-    # Expander: Keterangan indikator
-    # --------------------------
-    with st.expander("📌 Keterangan Rinci Indikator Evaluasi Model"):
-        st.markdown("""
-        1. **R² (R-squared) 📈**  
-           - Menunjukkan seberapa baik model menjelaskan variasi target.  
-           - Nilai 0–1: ≥0.9 sangat baik, 0.7–0.9 baik, 0.5–0.7 sedang, <0.5 kurang baik.  
-           - R² negatif → model lebih buruk daripada prediksi mean.
+    # 3️⃣ Keterangan indikator
+    st.markdown("""
+**📌 Keterangan Rinci Indikator Evaluasi Model:**  
+- R², RMSE, MAE, MAPE seperti biasa dijelaskan sebelumnya
+""")
 
-        2. **MSE (Mean Squared Error) 💥**  
-           - Rata-rata kuadrat selisih prediksi dengan nilai aktual.  
-           - Semakin kecil → semakin akurat.  
-           - Satuan = kuadrat target (misal target juta → MSE juta²).
-
-        3. **RMSE (Root Mean Squared Error) 🌟**  
-           - Akar dari MSE, satuan sama dengan target.  
-           - Semakin kecil → prediksi lebih dekat ke nilai aktual.
-
-        4. **MAE (Mean Absolute Error) ✨**  
-           - Rata-rata absolut error prediksi.  
-           - Semakin kecil → prediksi lebih akurat.
-
-        5. **MAPE (Mean Absolute Percentage Error) 📊**  
-           - Persentase error absolut rata-rata terhadap nilai aktual.  
-           - Semakin kecil → prediksi lebih akurat. Contoh: MAPE 0.10 → rata-rata prediksi meleset 10% dari nilai asli.
-        """)
-
-    # --------------------------
-    # Expander: Interpretasi per model
-    # --------------------------
-    with st.expander("📝 Interpretasi Hasil Setiap Model"):
-        for idx, row in results_eval.iterrows():
-            model = row['Model']
-            r2_out = row['R2_out_sample']
-            rmse_out = row['RMSE_out_sample']
-            mae_out = row['MAE_out_sample']
-            mape_out = row['MAPE_out_sample']
-
-            if r2_out >= 0.9 and rmse_out < results_eval['RMSE_out_sample'].median():
-                interpretasi = "Performa sangat baik: R² tinggi dan error rendah."
-            elif r2_out >= 0.7:
-                interpretasi = "Performa baik: R² cukup tinggi, error moderat."
-            elif r2_out >= 0.5:
-                interpretasi = "Performa sedang: R² sedang, perhatikan error."
-            else:
-                interpretasi = "Performa kurang baik: R² rendah, prediksi kemungkinan kurang akurat."
-
-            if row['R2_in_sample'] - r2_out > 0.2:
-                interpretasi += " ⚠️ Kemungkinan overfitting (R² in-sample jauh lebih tinggi)."
-
-            st.markdown(f"**{model}**: R²_out = {r2_out:.3f}, RMSE_out = {rmse_out:,.0f}, MAE = {mae_out:,.0f}, MAPE = {mape_out:.2%} → {interpretasi}")
-
+    # 4️⃣ Interpretasi per model
+    st.markdown("### 📝 Interpretasi Hasil Setiap Model")
+    for idx, row in results_eval.iterrows():
+        model = row['Model']
+        r2_out = row['R2_out_sample']
+        rmse_out = row['RMSE_out_sample']
+        mae_out = row['MAE_out_sample']
+        mape_out = row['MAPE_out_sample']
+        
+        if r2_out >= 0.9 and rmse_out < results_eval['RMSE_out_sample'].median():
+            interpretasi = "Performa sangat baik: R² tinggi dan error rendah."
+        elif r2_out >= 0.7:
+            interpretasi = "Performa baik: R² cukup tinggi, error moderat."
+        elif r2_out >= 0.5:
+            interpretasi = "Performa sedang: R² sedang, perhatikan error."
+        else:
+            interpretasi = "Performa kurang baik: R² rendah, prediksi kemungkinan kurang akurat."
+        
+        if row['R2_in_sample'] - r2_out > 0.2:
+            interpretasi += " ⚠️ Kemungkinan overfitting (R² in-sample jauh lebih tinggi)."
+        
+        st.markdown(f"**{model}**: R²_out = {r2_out:.3f}, RMSE_out = {rmse_out:,.0f}, MAE = {mae_out:,.0f}, MAPE = {mape_out:.2%} → {interpretasi}")
 
 # ==========================
-# Halaman 4: Prediksi (Tampilan Profesional)
+# Halaman 4: Prediksi
 # ==========================
 elif page == "Prediksi":
     st.title("💡 Prediksi Harga")
-
+    
     if "model_rf" not in st.session_state:
         st.warning("⚠️ Model belum tersedia!")
     else:
         model_rf = st.session_state["model_rf"]
 
-        # Load feature columns
         FEATURE_PATH = "model/feature_columns.joblib"
         if os.path.exists(FEATURE_PATH):
             feature_cols = joblib.load(FEATURE_PATH)
@@ -288,20 +258,13 @@ elif page == "Prediksi":
             st.warning("⚠️ Feature columns belum tersedia! Pastikan file 'feature_columns.joblib' ada di folder model/")
             st.stop()
 
-        # --------------------------
-        # Input Variabel dalam 2 kolom
-        # --------------------------
         st.subheader("Input Variabel")
         input_data = {}
-        cols = st.columns(2)
-        for i, col_name in enumerate(feature_cols):
-            val = cols[i%2].number_input(col_name, value=0.0)
-            input_data[col_name] = val
+        for col in feature_cols:
+            val = st.number_input(f"{col}", value=0.0)
+            input_data[col] = val
         input_df = pd.DataFrame([input_data])
 
-        # --------------------------
-        # Prediksi & Top-5 similarity
-        # --------------------------
         if st.button("Prediksi Harga"):
             try:
                 pred_harga = model_rf.predict(input_df)[0]
@@ -315,14 +278,14 @@ elif page == "Prediksi":
                 sim_matrix = cosine_similarity(X_scaled, input_scaled)
                 top5_idx = np.argsort(sim_matrix[:,0])[::-1][:5]
 
-                col_left, col_right = st.columns([1,1])
-                with col_left:
-                    st.subheader("Top-5 Similar Data Points (Index)")
-                    st.dataframe(pd.DataFrame({"Index": top5_idx}))
-                with col_right:
-                    st.subheader("Top-5 Similarity Score")
-                    st.dataframe(pd.DataFrame({"Similarity": sim_matrix[top5_idx,0]}))
+                st.subheader("Top-5 Data Paling Mirip")
+                for i, idx in enumerate(top5_idx):
+                    row = X_dummy.iloc[idx]
+                    sim_score = sim_matrix[idx,0]
+                    desc = f"**{i+1})** "
+                    desc += ", ".join([f"{col}: {row[col]:,.2f}" for col in feature_cols if col != "HARGAPENAWARAN"])
+                    desc += f" → Similarity: {sim_score:.2%}"
+                    st.markdown(desc)
+
             except Exception as e:
                 st.error(f"⚠️ Terjadi error saat prediksi: {e}")
-
-
