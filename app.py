@@ -390,19 +390,30 @@ elif page == "Prediksi":
             st.warning("⚠️ Feature columns belum tersedia! Pastikan file 'feature_columns.joblib' ada di folder model/")
             st.stop()
 
+        # ==========================
+        # Input Variabel (3 kolom per baris)
+        # ==========================
         st.subheader("Input Variabel")
         input_data = {}
-        for col in feature_cols:
-            val = st.number_input(f"{col}", value=0.0)
-            input_data[col] = val
+        n_cols = 3  # jumlah kolom berjajar
+        cols = st.columns(n_cols)
+        for i, col_name in enumerate(feature_cols):
+            col = cols[i % n_cols]
+            val = col.number_input(f"{col_name}", value=0.0, format="%.2f")
+            input_data[col_name] = val
         input_df = pd.DataFrame([input_data])
 
+        # ==========================
+        # Prediksi Harga
+        # ==========================
         if st.button("Prediksi Harga"):
             try:
                 pred_harga = model_rf.predict(input_df)[0]
                 st.success(f"💰 Prediksi Harga: {pred_harga:,.2f}")
 
-                # Top-5 similarity
+                # ==========================
+                # Top-5 Similarity
+                # ==========================
                 scaler = StandardScaler()
                 X_dummy = pd.DataFrame(np.random.rand(100, len(feature_cols)), columns=feature_cols)
                 X_scaled = scaler.fit_transform(X_dummy)
@@ -410,14 +421,19 @@ elif page == "Prediksi":
                 sim_matrix = cosine_similarity(X_scaled, input_scaled)
                 top5_idx = np.argsort(sim_matrix[:,0])[::-1][:5]
 
-                st.subheader("Top-5 Data Paling Mirip")
+                # Buat DataFrame Top-5 mirip
+                top5_list = []
                 for i, idx in enumerate(top5_idx):
                     row = X_dummy.iloc[idx]
                     sim_score = sim_matrix[idx,0]
-                    desc = f"**{i+1})** "
-                    desc += ", ".join([f"{col}: {row[col]:,.2f}" for col in feature_cols if col != "HARGAPENAWARAN"])
-                    desc += f" → Similarity: {sim_score:.2%}"
-                    st.markdown(desc)
+                    data_dict = {col: f"{row[col]:,.2f}" for col in feature_cols if col != "HARGAPENAWARAN"}
+                    data_dict["Prediksi Harga"] = f"{pred_harga:,.2f}"  # optional, bisa diganti row['HARGAPENAWARAN'] kalau ada
+                    data_dict["Similarity (%)"] = f"{sim_score*100:.2f}%"
+                    top5_list.append(data_dict)
+
+                top5_df = pd.DataFrame(top5_list)
+                st.subheader("Top-5 Data Paling Mirip")
+                st.dataframe(top5_df.style.background_gradient(cmap='viridis', subset=["Similarity (%)"]))
 
             except Exception as e:
                 st.error(f"⚠️ Terjadi error saat prediksi: {e}")
