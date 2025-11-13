@@ -143,9 +143,112 @@ elif page == "Evaluasi Model":
                 except Exception as e:
                     st.warning(f"⚠️ Model {name} gagal dijalankan: {e}")
 
-            results = results.sort_values(by='RMSE_out_sample')
-            st.subheader("Hasil Evaluasi Model")
-            st.dataframe(results)
+            # Sortir hasil
+            results = results.sort_values(by='RMSE_out_sample', ascending=True)
+
+            # 1️⃣ Tabel Interaktif
+            st.subheader("Tabel Hasil Evaluasi Model")
+            st.dataframe(
+                results.style.format({
+                    'R2_in_sample': '{:.3f}',
+                    'R2_out_sample': '{:.3f}',
+                    'MSE_in_sample': '{:,.0f}',
+                    'MSE_out_sample': '{:,.0f}',
+                    'RMSE_in_sample': '{:,.0f}',
+                    'RMSE_out_sample': '{:,.0f}',
+                    'MAE_in_sample': '{:,.0f}',
+                    'MAE_out_sample': '{:,.0f}',
+                    'MAPE_in_sample': '{:.2%}',
+                    'MAPE_out_sample': '{:.2%}'
+                }).background_gradient(cmap='plasma', subset=['R2_in_sample','R2_out_sample'])
+                  .background_gradient(cmap='viridis', subset=['RMSE_in_sample','RMSE_out_sample','MAE_in_sample','MAE_out_sample','MAPE_in_sample','MAPE_out_sample'])
+            )
+
+            # 2️⃣ Chart Interaktif dengan Tabs
+            st.subheader("Visualisasi Performa Model")
+            tab1, tab2 = st.tabs(["RMSE Out-Sample", "R² Out-Sample"])
+
+            with tab1:
+                fig_rmse = px.bar(
+                    results,
+                    x='RMSE_out_sample',
+                    y='Model',
+                    orientation='h',
+                    color='RMSE_out_sample',
+                    color_continuous_scale='viridis',
+                    text='RMSE_out_sample'
+                )
+                fig_rmse.update_layout(yaxis={'categoryorder':'total ascending'})
+                st.plotly_chart(fig_rmse, use_container_width=True)
+
+            with tab2:
+                fig_r2 = px.bar(
+                    results,
+                    x='R2_out_sample',
+                    y='Model',
+                    orientation='h',
+                    color='R2_out_sample',
+                    color_continuous_scale='plasma',
+                    text='R2_out_sample'
+                )
+                fig_r2.update_layout(yaxis={'categoryorder':'total ascending'})
+                st.plotly_chart(fig_r2, use_container_width=True)
+
+            # 3️⃣ Keterangan indikator
+            with st.expander("📌 Keterangan Rinci Indikator Evaluasi Model"):
+                st.markdown("""
+                1. **R² (R-squared) 📈**  
+                   - Menunjukkan seberapa baik model menjelaskan variasi target.  
+                   - Nilai 0–1: ≥0.9 sangat baik, 0.7–0.9 baik, 0.5–0.7 sedang, <0.5 kurang baik.  
+                   - R² negatif → model lebih buruk daripada prediksi mean.
+
+                2. **MSE (Mean Squared Error) 💥**  
+                   - Rata-rata kuadrat selisih prediksi dengan nilai aktual.  
+                   - Semakin kecil → semakin akurat.  
+                   - Satuan = kuadrat target (misal target juta → MSE juta²).
+
+                3. **RMSE (Root Mean Squared Error) 🌟**  
+                   - Akar dari MSE, satuan sama dengan target.  
+                   - Semakin kecil → prediksi lebih dekat ke nilai aktual.
+
+                4. **MAE (Mean Absolute Error) ✨**  
+                   - Rata-rata absolut error prediksi.  
+                   - Semakin kecil → prediksi lebih akurat.
+
+                5. **MAPE (Mean Absolute Percentage Error) 📊**  
+                   - Persentase error absolut rata-rata terhadap nilai aktual.  
+                   - Semakin kecil → prediksi lebih akurat. Contoh: MAPE 0.10 → rata-rata prediksi meleset 10% dari nilai asli.
+                """)
+
+            # 4️⃣ Interpretasi per model
+            with st.expander("📝 Interpretasi Hasil Setiap Model"):
+                interpretasi_text = ""
+                for idx, row in results.iterrows():
+                    model = row['Model']
+                    r2_out = row['R2_out_sample']
+                    rmse_out = row['RMSE_out_sample']
+                    mae_out = row['MAE_out_sample']
+                    mape_out = row['MAPE_out_sample']
+                    
+                    if r2_out >= 0.9 and rmse_out < results['RMSE_out_sample'].median():
+                        interpretasi = "Performa sangat baik: R² tinggi dan error rendah."
+                    elif r2_out >= 0.7:
+                        interpretasi = "Performa baik: R² cukup tinggi, error moderat."
+                    elif r2_out >= 0.5:
+                        interpretasi = "Performa sedang: R² sedang, perhatikan error."
+                    else:
+                        interpretasi = "Performa kurang baik: R² rendah, prediksi kemungkinan kurang akurat."
+                    
+                    if row['R2_in_sample'] - r2_out > 0.2:
+                        interpretasi += " ⚠️ Kemungkinan overfitting (R² in-sample jauh lebih tinggi)."
+                    
+                    interpretasi_text += (
+                        f"**{model}**: R²_out = {r2_out:.3f}, RMSE_out = {rmse_out:,.0f}, "
+                        f"MAE = {mae_out:,.0f}, MAPE = {mape_out:.2%} → {interpretasi}\n\n"
+                    )
+                
+                st.markdown(interpretasi_text)
+
 
 # ==========================
 # Halaman 3: Model Dasar Prediksi
