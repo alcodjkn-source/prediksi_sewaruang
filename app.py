@@ -408,9 +408,10 @@ elif page == "Prediksi":
         # ==========================
         if st.button("Prediksi Harga"):
             try:
+                # Prediksi numerik asli
                 pred_harga = model_rf.predict(input_df)[0]
                 st.success(f"💰 Prediksi Harga: {pred_harga:,.2f}")
-
+    
                 # ==========================
                 # Top-5 Similarity
                 # ==========================
@@ -420,20 +421,20 @@ elif page == "Prediksi":
                 input_scaled = scaler.transform(input_df)
                 sim_matrix = cosine_similarity(X_scaled, input_scaled)
                 top5_idx = np.argsort(sim_matrix[:,0])[::-1][:5]
-
-                # Buat DataFrame Top-5 mirip
-                top5_list = []
+        
+                # Buat DataFrame untuk ditampilkan saja
+                top5_display = []
                 for i, idx in enumerate(top5_idx):
                     row = X_dummy.iloc[idx]
                     sim_score = sim_matrix[idx,0]
                     data_dict = {col: f"{row[col]:,.2f}" for col in feature_cols if col != "HARGAPENAWARAN"}
-                    data_dict["Prediksi Harga"] = f"{pred_harga:,.2f}"  # optional, bisa diganti row['HARGAPENAWARAN'] kalau ada
+                    data_dict["Prediksi Harga"] = f"{pred_harga:,.2f}"  # bisa diganti nilai asli jika ada
                     data_dict["Similarity (%)"] = f"{sim_score*100:.2f}%"
-                    top5_list.append(data_dict)
+                    top5_display.append(data_dict)
 
-                top5_df = pd.DataFrame(top5_list)
+                df_top5_display = pd.DataFrame(top5_display)
                 st.subheader("Top-5 Data Paling Mirip")
-                st.dataframe(top5_df.style.background_gradient(cmap='viridis', subset=["Similarity (%)"]))
+                st.dataframe(df_top5_display.style.background_gradient(cmap='viridis', subset=["Similarity (%)"]))
 
             except Exception as e:
                 st.error(f"⚠️ Terjadi error saat prediksi: {e}")
