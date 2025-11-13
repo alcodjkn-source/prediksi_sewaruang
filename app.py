@@ -409,7 +409,7 @@ elif page == "Prediksi":
                 st.success(f"💰 Prediksi Harga: {pred_harga:,.2f}")
 
                 # Load dataset asli untuk similarity
-                DATA_PATH = "alcodjkn-source/prediksi_sewaruang/datamodelprediksi.xlsx"
+                DATA_PATH = "datamodelprediksi.xlsx"
                 if os.path.exists(DATA_PATH):
                     df_data = pd.read_excel(DATA_PATH)
                 else:
