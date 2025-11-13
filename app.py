@@ -377,7 +377,7 @@ elif page == "Model Dasar Prediksi":
 # ==========================
 elif page == "Prediksi":
     st.title("💡 Prediksi Harga")
-    
+
     if "model_rf" not in st.session_state:
         st.warning("⚠️ Model belum tersedia!")
     else:
@@ -390,51 +390,61 @@ elif page == "Prediksi":
             st.warning("⚠️ Feature columns belum tersedia! Pastikan file 'feature_columns.joblib' ada di folder model/")
             st.stop()
 
-        # ==========================
-        # Input Variabel (3 kolom per baris)
-        # ==========================
         st.subheader("Input Variabel")
+
+        # -------------------------
+        # Input berjajar 3 kolom
+        # -------------------------
         input_data = {}
-        n_cols = 3  # jumlah kolom berjajar
-        cols = st.columns(n_cols)
-        for i, col_name in enumerate(feature_cols):
-            col = cols[i % n_cols]
-            val = col.number_input(f"{col_name}", value=0.0, format="%.2f")
-            input_data[col_name] = val
+        n_cols = 3
+        rows = [feature_cols[i:i+n_cols] for i in range(0, len(feature_cols), n_cols)]
+        for row in rows:
+            cols = st.columns(len(row))
+            for i, col_name in enumerate(row):
+                val = cols[i].number_input(f"{col_name}", value=0.0)
+                input_data[col_name] = val
+
         input_df = pd.DataFrame([input_data])
 
-        # ==========================
-        # Prediksi Harga
-        # ==========================
+        # -------------------------
+        # Tombol Prediksi
+        # -------------------------
         if st.button("Prediksi Harga"):
             try:
-                # Prediksi numerik asli
+                # Prediksi harga
                 pred_harga = model_rf.predict(input_df)[0]
                 st.success(f"💰 Prediksi Harga: {pred_harga:,.2f}")
-    
-                # ==========================
-                # Top-5 Similarity
-                # ==========================
+
+                # -------------------------
+                # Top-5 similarity
+                # -------------------------
                 scaler = StandardScaler()
                 X_dummy = pd.DataFrame(np.random.rand(100, len(feature_cols)), columns=feature_cols)
                 X_scaled = scaler.fit_transform(X_dummy)
                 input_scaled = scaler.transform(input_df)
                 sim_matrix = cosine_similarity(X_scaled, input_scaled)
                 top5_idx = np.argsort(sim_matrix[:,0])[::-1][:5]
-        
-                # Buat DataFrame untuk ditampilkan saja
+
+                # Buat tabel display
                 top5_display = []
                 for i, idx in enumerate(top5_idx):
-                    row = X_dummy.iloc[idx]
+                    row_data = X_dummy.iloc[idx]
                     sim_score = sim_matrix[idx,0]
-                    data_dict = {col: f"{row[col]:,.2f}" for col in feature_cols if col != "HARGAPENAWARAN"}
-                    data_dict["Prediksi Harga"] = f"{pred_harga:,.2f}"  # bisa diganti nilai asli jika ada
-                    data_dict["Similarity (%)"] = f"{sim_score*100:.2f}%"
-                    top5_display.append(data_dict)
+
+                    display_row = {col: f"{row_data[col]:,.2f}" for col in feature_cols if col != "HARGAPENAWARAN"}
+                    display_row["Prediksi Harga"] = f"{pred_harga:,.2f}"  # bisa diganti row_data["HARGAPENAWARAN"] jika ada
+                    display_row["Similarity (%)"] = f"{sim_score*100:.2f}%"
+                    top5_display.append(display_row)
 
                 df_top5_display = pd.DataFrame(top5_display)
+
                 st.subheader("Top-5 Data Paling Mirip")
-                st.dataframe(df_top5_display.style.background_gradient(cmap='viridis', subset=["Similarity (%)"]))
+                st.dataframe(
+                    df_top5_display.style.background_gradient(
+                        cmap='viridis', subset=["Similarity (%)"]
+                    )
+                )
 
             except Exception as e:
                 st.error(f"⚠️ Terjadi error saat prediksi: {e}")
+
