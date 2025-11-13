@@ -212,10 +212,33 @@ elif page == "Model Dasar Prediksi":
         st.plotly_chart(fig_r2, use_container_width=True)
 
     # 3️⃣ Keterangan indikator
-    st.markdown("""
-**📌 Keterangan Rinci Indikator Evaluasi Model:**  
-- R², RMSE, MAE, MAPE seperti biasa dijelaskan sebelumnya
-""")
+  # --------------------------
+    # Expander: Keterangan indikator
+    # --------------------------
+    with st.expander("📌 Keterangan Rinci Indikator Evaluasi Model"):
+        st.markdown("""
+        1. **R² (R-squared) 📈**  
+           - Menunjukkan seberapa baik model menjelaskan variasi target.  
+           - Nilai 0–1: ≥0.9 sangat baik, 0.7–0.9 baik, 0.5–0.7 sedang, <0.5 kurang baik.  
+           - R² negatif → model lebih buruk daripada prediksi mean.
+
+        2. **MSE (Mean Squared Error) 💥**  
+           - Rata-rata kuadrat selisih prediksi dengan nilai aktual.  
+           - Semakin kecil → semakin akurat.  
+           - Satuan = kuadrat target (misal target juta → MSE juta²).
+
+        3. **RMSE (Root Mean Squared Error) 🌟**  
+           - Akar dari MSE, satuan sama dengan target.  
+           - Semakin kecil → prediksi lebih dekat ke nilai aktual.
+
+        4. **MAE (Mean Absolute Error) ✨**  
+           - Rata-rata absolut error prediksi.  
+           - Semakin kecil → prediksi lebih akurat.
+
+        5. **MAPE (Mean Absolute Percentage Error) 📊**  
+           - Persentase error absolut rata-rata terhadap nilai aktual.  
+           - Semakin kecil → prediksi lebih akurat. Contoh: MAPE 0.10 → rata-rata prediksi meleset 10% dari nilai asli.
+        """)
 
     # 4️⃣ Interpretasi per model
     st.markdown("### 📝 Interpretasi Hasil Setiap Model")
