@@ -405,6 +405,7 @@ elif page == "Prediksi":
         # Prediksi harga
         if st.button("Prediksi Harga"):
             try:
+                # Prediksi harga
                 pred_harga = model_rf.predict(input_df)[0]
                 st.success(f"💰 Prediksi Harga: {pred_harga:,.2f}")
 
@@ -422,19 +423,35 @@ elif page == "Prediksi":
                     st.error(f"⚠️ Kolom {missing_cols} tidak ada di dataset asli!")
                     st.stop()
 
-                # Scaling dan similarity
+                # Scaling & similarity
                 scaler = StandardScaler()
                 X_scaled = scaler.fit_transform(df_data[feature_cols])
                 input_scaled = scaler.transform(input_df)
                 sim_matrix = cosine_similarity(X_scaled, input_scaled)
 
+                # Ambil Top-5 data paling mirip
                 top5_idx = np.argsort(sim_matrix[:,0])[::-1][:5]
                 top5_rows = df_data.iloc[top5_idx].copy()
                 top5_rows["Similarity (%)"] = (sim_matrix[top5_idx,0]*100).round(2)
 
-                # Tampilkan tabel cantik
+                # Format kolom numerik
+                for col in feature_cols:
+                    if np.issubdtype(top5_rows[col].dtype, np.number):
+                        top5_rows[col] = top5_rows[col].map("{:,.2f}".format)
+
+                # Reset index
+                top5_rows = top5_rows.reset_index(drop=True)
+
+                # Styling tabel dengan gradient untuk similarity
                 st.subheader("Top-5 Data Paling Mirip")
-                st.dataframe(top5_rows.reset_index(drop=True))
+                st.dataframe(
+                    top5_rows.style.background_gradient(
+                        subset=["Similarity (%)"],
+                        cmap="YlGnBu",
+                        axis=0
+                    )
+                )
 
             except Exception as e:
                 st.error(f"⚠️ Terjadi error saat prediksi: {e}")
+
