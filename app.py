@@ -372,158 +372,160 @@ elif page == "Model Dasar Prediksi":
 
 
 
-# ============================================================
-# MODUL 4 – PREDIKSI DENGAN PREFILL LOKASI (POI API)
-# ============================================================
+# ==========================
+# Halaman 4: Prediksi (versi dengan prefill dari API ngrok)
+# ==========================
+elif page == "Prediksi":
+    import os, joblib, requests
+    from sklearn.preprocessing import StandardScaler
+    from sklearn.metrics.pairwise import cosine_similarity
 
-import streamlit as st
-import pandas as pd
-import numpy as np
-import requests
+    st.title("💡 Prediksi Harga")
 
-st.header("📊 Modul 4 – Prediksi dengan Prefill Lokasi")
+    if "model_rf" not in st.session_state:
+        st.warning("⚠️ Model belum tersedia!")
+    else:
+        model_rf = st.session_state["model_rf"]
 
-# ------------------------------------------------------------
-# Bagian 1. Input lokasi untuk prefill dari API ngrok
-# ------------------------------------------------------------
-st.subheader("🌐 Prefill Berdasarkan Lokasi (POI API)")
+        # =====================================
+        # BAGIAN 1 — Prefill dari API ngrok
+        # =====================================
+        st.subheader("🌐 Prefill Data Lingkungan Sekitar (POI API)")
+        col1, col2 = st.columns(2)
+        lat = col1.number_input("Latitude", value=-6.1754, step=0.0001, format="%.6f")
+        lon = col2.number_input("Longitude", value=106.8272, step=0.0001, format="%.6f")
 
-col1, col2 = st.columns(2)
-lat = col1.number_input("Latitude", value=-6.1754, step=0.0001, format="%.6f")
-lon = col2.number_input("Longitude", value=106.8272, step=0.0001, format="%.6f")
-
-endpoint_ngrok = st.text_input(
-    "🔗 Endpoint POI API (ngrok)",
-    value="https://latarsha-semicrystalline-deafeningly.ngrok-free.dev",
-    help="Ganti jika kamu membuat tunnel ngrok baru"
-)
-
-if st.button("📍 Ambil Data Sekitar dari API"):
-    try:
-        url = f"{endpoint_ngrok}/poi?lat={lat}&lon={lon}&radius=2000"
-        st.info(f"Mengambil data dari: {url}")
-        response = requests.get(url, timeout=20)
-        response.raise_for_status()
-
-        poi_data = response.json()
-        st.session_state["poi_data"] = poi_data
-        st.success("✅ Data lokasi berhasil diambil!")
-        with st.expander("🔍 Lihat Data Mentah dari API"):
-            st.json(poi_data)
-
-    except Exception as e:
-        st.error(f"❌ Gagal mengambil data lokasi: {e}")
-
-# ------------------------------------------------------------
-# Bagian 2. Form Input Fitur Prediksi (prefill otomatis)
-# ------------------------------------------------------------
-st.subheader("🧩 Isian Fitur untuk Prediksi")
-
-# Jika ada data POI dari session_state → prefill field
-poi = st.session_state.get("poi_data", {})
-
-col1, col2 = st.columns(2)
-
-jumlah_mall = col1.number_input(
-    "Jumlah Mall (2KM)",
-    value=float(poi.get("Jumlah_mall_2KM", 0)),
-    key="Jumlah_mall_2KM"
-)
-jarak_mall = col2.number_input(
-    "Jarak Terdekat Mall (meter)",
-    value=float(poi.get("Jarak_Terdekat_mall", 0)),
-    key="Jarak_Terdekat_mall"
-)
-
-jumlah_school = col1.number_input(
-    "Jumlah Sekolah (2KM)",
-    value=float(poi.get("Jumlah_school_2KM", 0)),
-    key="Jumlah_school_2KM"
-)
-jarak_school = col2.number_input(
-    "Jarak Terdekat Sekolah (meter)",
-    value=float(poi.get("Jarak_Terdekat_school", 0)),
-    key="Jarak_Terdekat_school"
-)
-
-jumlah_hospital = col1.number_input(
-    "Jumlah Rumah Sakit (2KM)",
-    value=float(poi.get("Jumlah_hospital_2KM", 0)),
-    key="Jumlah_hospital_2KM"
-)
-jarak_hospital = col2.number_input(
-    "Jarak Terdekat Rumah Sakit (meter)",
-    value=float(poi.get("Jarak_Terdekat_hospital", 0)),
-    key="Jarak_Terdekat_hospital"
-)
-
-jumlah_government = col1.number_input(
-    "Jumlah Kantor Pemerintah (2KM)",
-    value=float(poi.get("Jumlah_government_2KM", 0)),
-    key="Jumlah_government_2KM"
-)
-jarak_government = col2.number_input(
-    "Jarak Terdekat Kantor Pemerintah (meter)",
-    value=float(poi.get("Jarak_Terdekat_government", 0)),
-    key="Jarak_Terdekat_government"
-)
-
-jumlah_company = col1.number_input(
-    "Jumlah Perusahaan (2KM)",
-    value=float(poi.get("Jumlah_company_2KM", 0)),
-    key="Jumlah_company_2KM"
-)
-jarak_company = col2.number_input(
-    "Jarak Terdekat Perusahaan (meter)",
-    value=float(poi.get("Jarak_Terdekat_company", 0)),
-    key="Jarak_Terdekat_company"
-)
-
-# ------------------------------------------------------------
-# Bagian 3. Proses Prediksi
-# ------------------------------------------------------------
-st.subheader("📈 Hasil Prediksi")
-
-if st.button("🚀 Jalankan Prediksi"):
-    # contoh perhitungan dummy (bisa diganti dengan model ML kamu)
-    skor = (
-        jumlah_mall * 0.1 +
-        jumlah_school * 0.05 +
-        jumlah_hospital * 0.07 +
-        jumlah_government * 0.08 +
-        jumlah_company * 0.06
-    )
-    st.success(f"💡 Skor Prediksi Lokasi: {skor:.2f}")
-
-    # tampilkan summary singkat
-    with st.expander("📋 Rincian Fitur yang Digunakan"):
-        df = pd.DataFrame(
-            {
-                "Fitur": [
-                    "Jumlah_mall_2KM",
-                    "Jarak_Terdekat_mall",
-                    "Jumlah_school_2KM",
-                    "Jarak_Terdekat_school",
-                    "Jumlah_hospital_2KM",
-                    "Jarak_Terdekat_hospital",
-                    "Jumlah_government_2KM",
-                    "Jarak_Terdekat_government",
-                    "Jumlah_company_2KM",
-                    "Jarak_Terdekat_company",
-                ],
-                "Nilai": [
-                    jumlah_mall,
-                    jarak_mall,
-                    jumlah_school,
-                    jarak_school,
-                    jumlah_hospital,
-                    jarak_hospital,
-                    jumlah_government,
-                    jarak_government,
-                    jumlah_company,
-                    jarak_company,
-                ],
-            }
+        endpoint_ngrok = st.text_input(
+            "🔗 Endpoint POI API (ngrok)",
+            value="https://latarsha-semicrystalline-deafeningly.ngrok-free.dev",
+            help="Ganti dengan endpoint ngrok kamu yang aktif"
         )
-        st.dataframe(df, use_container_width=True)
 
+        if st.button("📍 Ambil Data POI dari API"):
+            try:
+                url = f"{endpoint_ngrok}/poi?lat={lat}&lon={lon}&radius=2000"
+                st.info(f"Mengambil data dari: {url}")
+                r = requests.get(url, timeout=20)
+                r.raise_for_status()
+                poi_data = r.json()
+                st.session_state["poi_raw"] = poi_data
+
+                # Konversi ke DataFrame agar bisa diproses agregat
+                df = pd.DataFrame([poi_data])
+
+                # === Agregasi kategori (Commercial_Center, dsb) ===
+                df["Jumlah_Commercial_Center_2KM"] = df[
+                    ["Jumlah_mall_2KM", "Jumlah_department_store_2KM", "Jumlah_supermarket_2KM"]
+                ].sum(axis=1, skipna=True)
+                df["Jarak_Terdekat_Commercial_Center"] = df[
+                    ["Jarak_Terdekat_mall", "Jarak_Terdekat_department_store", "Jarak_Terdekat_supermarket"]
+                ].min(axis=1, skipna=True)
+
+                df["Jumlah_Convenience_2KM"] = df[["Jumlah_convenience_2KM"]].sum(axis=1, skipna=True)
+                df["Jarak_Terdekat_Convenience"] = df[["Jarak_Terdekat_convenience"]].min(axis=1, skipna=True)
+
+                df["Jumlah_Health_Service_2KM"] = df[
+                    ["Jumlah_hospital_2KM", "Jumlah_clinic_2KM"]
+                ].sum(axis=1, skipna=True)
+                df["Jarak_Terdekat_Health_Service"] = df[
+                    ["Jarak_Terdekat_hospital", "Jarak_Terdekat_clinic"]
+                ].min(axis=1, skipna=True)
+
+                df["Jumlah_School_2KM"] = df[["Jumlah_school_2KM"]].sum(axis=1, skipna=True)
+                df["Jarak_Terdekat_School"] = df[["Jarak_Terdekat_school"]].min(axis=1, skipna=True)
+
+                df["Jumlah_University_2KM"] = df[["Jumlah_university_2KM"]].sum(axis=1, skipna=True)
+                df["Jarak_Terdekat_University"] = df[["Jarak_Terdekat_university"]].min(axis=1, skipna=True)
+
+                df["Jumlah_Office_2KM"] = df[
+                    ["Jumlah_government_2KM", "Jumlah_administrative_2KM", "Jumlah_company_2KM"]
+                ].sum(axis=1, skipna=True)
+                df["Jarak_Terdekat_Office"] = df[
+                    ["Jarak_Terdekat_government", "Jarak_Terdekat_administrative", "Jarak_Terdekat_company"]
+                ].min(axis=1, skipna=True)
+
+                # Simpan hasil mapping
+                st.session_state["poi_df"] = df
+                st.success("✅ Data POI berhasil diambil dan dimapping!")
+
+                with st.expander("🔍 Data Mentah API"):
+                    st.json(poi_data)
+                with st.expander("🧭 Data Setelah Mapping"):
+                    st.dataframe(df)
+
+            except Exception as e:
+                st.error(f"❌ Gagal mengambil data dari API: {e}")
+
+        # =====================================
+        # BAGIAN 2 — Input Variabel Prediksi
+        # =====================================
+        FEATURE_PATH = "model/feature_columns.joblib"
+        if os.path.exists(FEATURE_PATH):
+            feature_cols = joblib.load(FEATURE_PATH)
+        else:
+            st.warning("⚠️ Feature columns belum tersedia! Pastikan file 'feature_columns.joblib' ada di folder model/")
+            st.stop()
+
+        st.subheader("✏️ Input Variabel Prediksi")
+        input_data = {}
+        poi_df = st.session_state.get("poi_df", pd.DataFrame())
+        row = poi_df.iloc[0] if not poi_df.empty else {}
+
+        n_cols = 3
+        cols = st.columns(n_cols)
+
+        for i, col_name in enumerate(feature_cols):
+            with cols[i % n_cols]:
+                default_val = float(row.get(col_name, 0)) if col_name in row else 0.0
+                val = st.number_input(f"{col_name}", value=default_val, format="%.4f")
+                input_data[col_name] = val
+
+        input_df = pd.DataFrame([input_data])
+
+        # =====================================
+        # BAGIAN 3 — Prediksi Harga
+        # =====================================
+        if st.button("💰 Prediksi Harga"):
+            try:
+                pred_harga = model_rf.predict(input_df)[0]
+                st.success(f"💰 Prediksi Harga: {pred_harga:,.2f}")
+
+                # -------------------------------------
+                # Similarity check (seperti versi lama)
+                # -------------------------------------
+                DATA_PATH = "datamodelprediksi.xlsx"
+                if os.path.exists(DATA_PATH):
+                    df_data = pd.read_excel(DATA_PATH)
+                else:
+                    st.error("⚠️ Dataset asli untuk similarity tidak ditemukan!")
+                    st.stop()
+
+                missing_cols = [c for c in feature_cols if c not in df_data.columns]
+                if missing_cols:
+                    st.error(f"⚠️ Kolom {missing_cols} tidak ada di dataset asli!")
+                    st.stop()
+
+                scaler = StandardScaler()
+                X_scaled = scaler.fit_transform(df_data[feature_cols])
+                input_scaled = scaler.transform(input_df)
+                sim_matrix = cosine_similarity(X_scaled, input_scaled)
+
+                top5_idx = np.argsort(sim_matrix[:, 0])[::-1][:5]
+                top5_rows = df_data.iloc[top5_idx].copy()
+                top5_rows["Similarity (%)"] = (sim_matrix[top5_idx, 0] * 100).round(2)
+
+                for col in feature_cols:
+                    if np.issubdtype(top5_rows[col].dtype, np.number):
+                        top5_rows[col] = top5_rows[col].map("{:,.2f}".format)
+
+                top5_rows = top5_rows.reset_index(drop=True)
+
+                st.subheader("📊 Top-5 Data Paling Mirip")
+                st.dataframe(
+                    top5_rows.style.background_gradient(
+                        subset=["Similarity (%)"], cmap="YlGnBu", axis=0
+                    )
+                )
+
+            except Exception as e:
+                st.error(f"⚠️ Terjadi error saat prediksi: {e}")
