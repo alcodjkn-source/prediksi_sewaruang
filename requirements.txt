@@ -13,3 +13,5 @@ matplotlib
 scikit-learn
 xgboost
 lightgbm
+
+plotly
