@@ -391,54 +391,49 @@ elif page == "Prediksi":
             st.warning("⚠️ Feature columns belum tersedia! Pastikan file 'feature_columns.joblib' ada di folder model/")
             st.stop()
 
-        # Load dataset asli untuk similarity
-        DATA_PATH = "data/datamodelprediksi.xlsx"
-        if os.path.exists(DATA_PATH):
-            df_similarity = pd.read_excel(DATA_PATH)
-        else:
-            st.warning("⚠️ Dataset asli untuk similarity tidak ditemukan!")
-            st.stop()
-
-        # Pastikan semua kolom numerik
-        for col in feature_cols:
-            if df_similarity[col].dtype == object:
-                # Remove % dan ubah ke float
-                df_similarity[col] = df_similarity[col].astype(str).str.replace("%","").astype(float)
-
+        # Layout 3 kolom berjajar untuk input
         st.subheader("Input Variabel")
-
-        # Tampilkan input 3 kolom per baris
         input_data = {}
-        cols_per_row = 3
-        for i in range(0, len(feature_cols), cols_per_row):
-            cols = st.columns(min(cols_per_row, len(feature_cols)-i))
-            for j, col_name in enumerate(feature_cols[i:i+cols_per_row]):
-                val = cols[j].number_input(f"{col_name}", value=0.0)
+        n_cols = 3
+        cols = st.columns(n_cols)
+        for i, col_name in enumerate(feature_cols):
+            with cols[i % n_cols]:
+                val = st.number_input(f"{col_name}", value=0.0, format="%.2f")
                 input_data[col_name] = val
-
         input_df = pd.DataFrame([input_data])
 
         # Prediksi harga
         if st.button("Prediksi Harga"):
             try:
-                # Prediksi
                 pred_harga = model_rf.predict(input_df)[0]
                 st.success(f"💰 Prediksi Harga: {pred_harga:,.2f}")
 
-                # Hitung similarity dengan dataset asli
+                # Load dataset asli untuk similarity
+                DATA_PATH = "alcodjkn-source/prediksi_sewaruang/datamodelprediksi.xlsx"
+                if os.path.exists(DATA_PATH):
+                    df_data = pd.read_excel(DATA_PATH)
+                else:
+                    st.error("⚠️ Dataset asli untuk similarity tidak ditemukan!")
+                    st.stop()
+
+                # Pastikan feature_cols ada di dataset asli
+                missing_cols = [c for c in feature_cols if c not in df_data.columns]
+                if missing_cols:
+                    st.error(f"⚠️ Kolom {missing_cols} tidak ada di dataset asli!")
+                    st.stop()
+
+                # Scaling dan similarity
                 scaler = StandardScaler()
-                X_similarity = df_similarity[feature_cols].copy()
-                X_scaled = scaler.fit_transform(X_similarity)
+                X_scaled = scaler.fit_transform(df_data[feature_cols])
                 input_scaled = scaler.transform(input_df)
                 sim_matrix = cosine_similarity(X_scaled, input_scaled)
-                top5_idx = np.argsort(sim_matrix[:,0])[::-1][:5]
 
-                # Tampilkan Top-5 similarity dalam tabel
+                top5_idx = np.argsort(sim_matrix[:,0])[::-1][:5]
+                top5_rows = df_data.iloc[top5_idx].copy()
+                top5_rows["Similarity (%)"] = (sim_matrix[top5_idx,0]*100).round(2)
+
+                # Tampilkan tabel cantik
                 st.subheader("Top-5 Data Paling Mirip")
-                top5_rows = df_similarity.iloc[top5_idx].copy()
-                top5_rows['Similarity'] = sim_matrix[top5_idx,0]
-                # Format similarity %
-                top5_rows['Similarity'] = top5_rows['Similarity'].apply(lambda x: f"{x*100:.2f}%")
                 st.dataframe(top5_rows.reset_index(drop=True))
 
             except Exception as e:
